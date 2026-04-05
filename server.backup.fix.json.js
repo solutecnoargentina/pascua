@@ -100,7 +100,7 @@ app.get('/api/status', (req, res) => {
 });
 
 app.get('/api/config', (req, res) => {
-  res.json({ ok: true, config: getConfig() });
+  res.json(getConfig());
 });
 
 app.post('/api/config', (req, res) => {
