@@ -269,34 +269,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
-
-<hr>
-<h2>🧠 Entrenamiento IA</h2>
-
-<textarea id="ai_training" style="width:100%;height:150px;"></textarea>
-
-<button onclick="guardarTraining()">Guardar entrenamiento</button>
-
-<script>
-async function cargarTraining(){
-  const r = await fetch('/api/config');
-  const d = await r.json();
-  const c = d.config || {};
-  document.getElementById('ai_training').value = c.ai_training || "";
-}
-
-async function guardarTraining(){
-  const txt = document.getElementById('ai_training').value;
-
-  await fetch('/api/config',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ ai_training: txt })
-  });
-
-  alert("Entrenamiento guardado");
-}
-
-cargarTraining();
-</script>
-

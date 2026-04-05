@@ -1,28 +1,3 @@
-function limpiarRespuesta(txt){
-  if(!txt) return "";
-
-  // eliminar frases de IA
-  const prohibidas = [
-    "soy una ia",
-    "como modelo de lenguaje",
-    "no tengo acceso",
-    "no puedo acceder",
-    "como asistente",
-    "no tengo información en tiempo real"
-  ];
-
-  let limpio = txt.toLowerCase();
-
-  for(const p of prohibidas){
-    if(limpio.includes(p)) return "";
-  }
-
-  // cortar si se hace largo
-  txt = txt.split("\n")[0];
-
-  return txt.trim();
-}
-
 const fetch = require("node-fetch");
 const Database = require('better-sqlite3');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -108,8 +83,8 @@ function start() {
         if (cfg.ai_enabled) {
           console.log("AGENTE: IA");
 
-          const prompt = `${cfg.ai_prompt}\n\nINFORMACIÓN DEL NEGOCIO:\n${cfg.ai_training || ""}\n\nCliente: ${text}`;
-          reply = limpiarRespuesta(await askAI(prompt));
+          const prompt = `${cfg.ai_prompt}\nCliente: ${text}`;
+          reply = await askAI(prompt);
 
         } else {
           console.log("AGENTE: SECRETARIA");
