@@ -21,17 +21,8 @@ function getConfig() {
   const row = db.prepare('SELECT * FROM config WHERE id = 1').get() || {};
   return {
     company_name: row.company_name || 'Solutecno Argentina',
-    secretary_name: row.secretary_name || 'Secretaria',
-    sales_name: row.sales_name || 'Ventas',
-    support_name: row.support_name || 'Soporte',
-    sales_triggers: (row.sales_triggers || 'precio,comprar,promo,venta,costo').toLowerCase(),
-    support_triggers: (row.support_triggers || 'error,problema,no anda,soporte,ayuda').toLowerCase()
+    secretary_name: row.secretary_name || 'Secretaria'
   };
-}
-
-function match(text, triggers) {
-  const words = triggers.split(',').map(w => w.trim());
-  return words.some(w => text.includes(w));
 }
 
 function start() {
@@ -58,30 +49,21 @@ function start() {
   });
 
   client.on('message_create', async (msg) => {
-    try {
-      if (msg.fromMe) return;
+    console.log("MENSAJE DETECTADO:", msg.body);
+    console.log("FROM:", msg.from);
+    console.log("FROM ME:", msg.fromMe);
 
-      const text = (msg.body || '').toLowerCase();
-      console.log("MENSAJE:", text);
+    try {
+      // ignorar solo mensajes propios
+      if (msg.fromMe) return;
 
       const cfg = getConfig();
 
-      let reply = "";
+      const reply = `Hola, soy ${cfg.secretary_name} de ${cfg.company_name}. ¿En qué puedo ayudarte?`;
 
-      if (match(text, cfg.sales_triggers)) {
-        reply = `💰 Te habla ${cfg.sales_name} de ${cfg.company_name}.\n\nContame qué producto o servicio te interesa y te paso toda la info.`;
-        console.log("AGENTE: VENTAS");
-      }
-      else if (match(text, cfg.support_triggers)) {
-        reply = `🔧 Te habla ${cfg.support_name} de ${cfg.company_name}.\n\nContame qué problema tenés y te ayudo paso a paso.`;
-        console.log("AGENTE: SOPORTE");
-      }
-      else {
-        reply = `👋 Hola, soy ${cfg.secretary_name} de ${cfg.company_name}.\n\nPuedo derivarte a:\n• Ventas\n• Soporte\n\n¿En qué puedo ayudarte?`;
-        console.log("AGENTE: SECRETARIA");
-      }
-
+      // 🔥 RESPUESTA DIRECTA SIN getChat()
       await client.sendMessage(msg.from, reply);
+
       console.log("RESPONDIDO OK");
 
     } catch (e) {
