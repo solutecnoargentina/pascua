@@ -1,115 +1,150 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 const Database = require('better-sqlite3');
-const QRCode = require('qrcode');
-const { Client, LocalAuth } = require('whatsapp-web.js');
 
 const app = express();
 const PORT = 3000;
-const db = new Database('/opt/solutecno-whatsapp/data.db');
+const DB_PATH = '/opt/solutecno-whatsapp/data.db';
+const RUNTIME_DIR = '/opt/solutecno-whatsapp/runtime';
+const db = new Database(DB_PATH);
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-let client;
-let isReady = false;
-let qrData = null;
-
-function initDB() {
+function ensureTables() {
   db.exec(`
-  CREATE TABLE IF NOT EXISTS config (
-    id INTEGER PRIMARY KEY,
-    company_name TEXT,
-    secretary_name TEXT,
-    secretary_personality TEXT
-  )
+    CREATE TABLE IF NOT EXISTS config (
+      id INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      contact_name TEXT,
+      phone TEXT,
+      direction TEXT,
+      body TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
-  const row = db.prepare("SELECT * FROM config WHERE id=1").get();
+  const row = db.prepare('SELECT id FROM config WHERE id = 1').get();
   if (!row) {
-    db.prepare("INSERT INTO config (id, company_name, secretary_name, secretary_personality) VALUES (1,'Solutecno Argentina','Secretaria','Profesional')").run();
+    db.prepare('INSERT INTO config (id) VALUES (1)').run();
   }
 }
 
 function getConfig() {
-  return db.prepare("SELECT * FROM config WHERE id=1").get();
+  const row = db.prepare('SELECT * FROM config WHERE id = 1').get();
+  return row || { id: 1 };
 }
 
-function saveConfig(data) {
-  db.prepare(`
-    UPDATE config SET
-    company_name=?,
-    secretary_name=?,
-    secretary_personality=?
-    WHERE id=1
-  `).run(data.company_name, data.secretary_name, data.secretary_personality);
+function saveConfigGeneric(payload) {
+  const columns = db.prepare("PRAGMA table_info(config)").all().map(c => c.name);
+  const allowed = columns.filter(c => c !== 'id');
+  const keys = Object.keys(payload || {}).filter(k => allowed.includes(k));
+
+  if (!keys.length) return getConfig();
+
+  const setClause = keys.map(k => `${k} = @${k}`).join(', ');
+  const stmt = db.prepare(`UPDATE config SET ${setClause} WHERE id = 1`);
+  stmt.run(payload);
+
+  return getConfig();
 }
 
-function startWhatsApp() {
-  client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'solutecno' }),
-    puppeteer: {
-      headless: true,
-      executablePath: '/usr/bin/chromium-browser',
-      args: ['--no-sandbox','--disable-setuid-sandbox']
-    }
-  });
-
-  client.on('qr', async (qr) => {
-    qrData = await QRCode.toDataURL(qr);
-    isReady = false;
-    console.log("QR generado");
-  });
-
-  client.on('ready', () => {
-    isReady = true;
-    qrData = null;
-    console.log("WhatsApp conectado");
-  });
-
-  client.on('disconnected', () => {
-    console.log("Reconectando...");
-    setTimeout(startWhatsApp, 5000);
-  });
-
-  client.on('message', async (msg) => {
-    if (msg.fromMe) return;
-
-    const chat = await msg.getChat();
-    if (chat.isGroup) return;
-    if (chat.id.server !== 'c.us') return;
-
-    const cfg = getConfig();
-
-    const reply = `Hola, soy ${cfg.secretary_name} de ${cfg.company_name}. ¿En qué puedo ayudarte?`;
-
-    await msg.reply(reply);
-  });
-
-  client.initialize();
+function readJsonSafe(file, fallback) {
+  try {
+    if (!fs.existsSync(file)) return fallback;
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
 }
 
-app.get('/api/qr', (req, res) => {
-  if (!qrData) return res.send("QR no disponible");
-  res.send(`<img src="${qrData}" width="300">`);
-});
+function readTextSafe(file, fallback = '') {
+  try {
+    if (!fs.existsSync(file)) return fallback;
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return fallback;
+  }
+}
 
-app.get('/api/status', (req, res) => {
-  res.json({ ready: isReady });
-});
+ensureTables();
 
 app.get('/api/config', (req, res) => {
   res.json({ ok: true, config: getConfig() });
 });
 
 app.post('/api/config', (req, res) => {
-  saveConfig(req.body);
-  res.json({ ok: true });
+  const config = saveConfigGeneric(req.body || {});
+  res.json({ ok: true, config });
+});
+
+app.get('/api/messages', (req, res) => {
+  const rows = db.prepare(`
+    SELECT * FROM messages
+    ORDER BY id DESC
+    LIMIT 100
+  `).all();
+
+  res.json({ ok: true, messages: rows });
+});
+
+app.get('/api/status', (req, res) => {
+  const status = readJsonSafe(path.join(RUNTIME_DIR, 'status.json'), {
+    ready: false,
+    state: 'STOPPED',
+    worker: false
+  });
+
+  res.json({
+    ok: true,
+    ready: !!status.ready,
+    state: status.state || 'UNKNOWN',
+    qrAvailable: !!readTextSafe(path.join(RUNTIME_DIR, 'qr.txt')),
+    worker: !!status.worker,
+    lastMessageAt: status.lastMessageAt || null
+  });
+});
+
+app.get('/api/qr', (req, res) => {
+  const qrDataUrl = readTextSafe(path.join(RUNTIME_DIR, 'qr.txt'));
+  if (!qrDataUrl) {
+    return res.status(404).send('QR no disponible todavía. Esperá unos segundos y volvé a abrir.');
+  }
+
+  res.send(`
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <title>QR WhatsApp - Solutecno Argentina</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        body { font-family: Arial, sans-serif; background:#111; color:#fff; text-align:center; padding:20px; }
+        img { max-width: 360px; width: 100%; background:#fff; padding:15px; border-radius:12px; }
+        .box { max-width:420px; margin:0 auto; background:#1e1e1e; padding:20px; border-radius:16px; }
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <h2>QR WhatsApp</h2>
+        <p>Escaneá este QR desde el teléfono que va a usar el bot.</p>
+        <img src="${qrDataUrl}" alt="QR WhatsApp" />
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log("Servidor listo");
-  initDB();
-  startWhatsApp();
+  console.log(`Dashboard/API listo en puerto ${PORT}`);
 });
