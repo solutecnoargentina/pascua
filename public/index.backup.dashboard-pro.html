@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Solutecno Argentina - Dashboard Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; padding:20px; color:#111827; }
+    .wrap { max-width:1100px; margin:0 auto; }
+    .card { background:#fff; border-radius:16px; padding:20px; margin-bottom:20px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+    h1,h2,h3 { margin-top:0; }
+    label { display:block; font-weight:bold; margin:10px 0 6px; }
+    input[type="text"], textarea {
+      width:100%; box-sizing:border-box; padding:12px; border:1px solid #d1d5db; border-radius:10px;
+    }
+    textarea { min-height:110px; resize:vertical; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+    .btn {
+      background:#111827; color:#fff; border:none; padding:12px 16px; border-radius:10px;
+      cursor:pointer; text-decoration:none; display:inline-block; margin-right:10px; margin-top:10px;
+    }
+    .btn.secondary { background:#374151; }
+    .status { font-weight:bold; padding:10px 12px; border-radius:10px; display:inline-block; }
+    .ok { background:#dcfce7; color:#166534; }
+    .bad { background:#fee2e2; color:#991b1b; }
+    .small { font-size:13px; color:#4b5563; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; vertical-align:top; }
+    @media (max-width:900px) {
+      .grid, .grid3 { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Solutecno Argentina - Dashboard Bot</h1>
+    <div id="statusBox">Cargando estado...</div>
+    <a class="btn" href="/api/qr" target="_blank">Ver QR</a>
+    <button class="btn secondary" onclick="restartWhatsapp()">Reiniciar WhatsApp</button>
+  </div>
+
+  <div class="card">
+    <h2>Configuración general</h2>
+    <label>Nombre de la empresa</label>
+    <input type="text" id="company_name">
+
+    <div class="grid3">
+      <div>
+        <label><input type="checkbox" id="block_groups"> Bloquear grupos</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="block_newsletters"> Bloquear canales/newsletters</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="block_status"> Bloquear estados</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="block_from_me"> Ignorar mensajes propios</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="anti_old_messages"> Ignorar mensajes viejos al arrancar</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="default_reply_enabled"> Respuestas activas</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Agente Secretaria</h2>
+      <label>Nombre</label>
+      <input type="text" id="secretary_name">
+      <label>Personalidad</label>
+      <textarea id="secretary_personality"></textarea>
+      <label>Conocimientos</label>
+      <textarea id="secretary_knowledge"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>Agente Ventas</h2>
+      <label>Nombre</label>
+      <input type="text" id="sales_name">
+      <label>Personalidad</label>
+      <textarea id="sales_personality"></textarea>
+      <label>Conocimientos</label>
+      <textarea id="sales_knowledge"></textarea>
+      <label>Palabras disparadoras de ventas (separadas por coma)</label>
+      <input type="text" id="sales_triggers">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Agente Soporte</h2>
+    <label>Nombre</label>
+    <input type="text" id="support_name">
+    <label>Personalidad</label>
+    <textarea id="support_personality"></textarea>
+    <label>Conocimientos</label>
+    <textarea id="support_knowledge"></textarea>
+    <label>Palabras disparadoras de soporte (separadas por coma)</label>
+    <input type="text" id="support_triggers">
+  </div>
+
+  <div class="card">
+    <button class="btn" onclick="saveConfig()">Guardar configuración</button>
+    <span id="saveMsg" class="small"></span>
+  </div>
+
+  <div class="card">
+    <h2>Últimos mensajes</h2>
+    <div class="small">Se muestran los últimos 100.</div>
+    <div id="messagesBox">Cargando mensajes...</div>
+  </div>
+</div>
+
+<script>
+async function loadStatus() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+  const ok = data.ready;
+  document.getElementById('statusBox').innerHTML = `
+    <span class="status ${ok ? 'ok' : 'bad'}">
+      ${ok ? 'WhatsApp conectado' : 'WhatsApp no conectado'}
+    </span>
+    <div class="small" style="margin-top:10px">
+      Estado: ${data.state || 'sin dato'}<br>
+      QR disponible: ${data.qrAvailable ? 'sí' : 'no'}
+    </div>
+  `;
+}
+
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  const c = data.config;
+
+  for (const key in c) {
+    const el = document.getElementById(key);
+    if (!el) continue;
+    if (el.type === 'checkbox') {
+      el.checked = !!c[key];
+    } else {
+      el.value = c[key] ?? '';
+    }
+  }
+}
+
+async function saveConfig() {
+  const payload = {
+    company_name: document.getElementById('company_name').value,
+    secretary_name: document.getElementById('secretary_name').value,
+    secretary_personality: document.getElementById('secretary_personality').value,
+    secretary_knowledge: document.getElementById('secretary_knowledge').value,
+    sales_name: document.getElementById('sales_name').value,
+    sales_personality: document.getElementById('sales_personality').value,
+    sales_knowledge: document.getElementById('sales_knowledge').value,
+    support_name: document.getElementById('support_name').value,
+    support_personality: document.getElementById('support_personality').value,
+    support_knowledge: document.getElementById('support_knowledge').value,
+    sales_triggers: document.getElementById('sales_triggers').value,
+    support_triggers: document.getElementById('support_triggers').value,
+    block_groups: document.getElementById('block_groups').checked,
+    block_newsletters: document.getElementById('block_newsletters').checked,
+    block_status: document.getElementById('block_status').checked,
+    block_from_me: document.getElementById('block_from_me').checked,
+    anti_old_messages: document.getElementById('anti_old_messages').checked,
+    default_reply_enabled: document.getElementById('default_reply_enabled').checked
+  };
+
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  document.getElementById('saveMsg').innerText = data.ok ? 'Guardado correctamente' : 'Error al guardar';
+  await loadMessages();
+}
+
+async function loadMessages() {
+  const res = await fetch('/api/messages');
+  const data = await res.json();
+  const rows = data.messages || [];
+
+  if (!rows.length) {
+    document.getElementById('messagesBox').innerHTML = '<p>No hay mensajes todavía.</p>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Fecha</th><th>Dirección</th><th>Teléfono</th><th>Nombre</th><th>Mensaje</th></tr></thead><tbody>';
+  for (const row of rows) {
+    html += `
+      <tr>
+        <td>${row.created_at || ''}</td>
+        <td>${row.direction || ''}</td>
+        <td>${row.phone || ''}</td>
+        <td>${row.contact_name || ''}</td>
+        <td>${(row.body || '').replace(/</g,'&lt;')}</td>
+      </tr>
+    `;
+  }
+  html += '</tbody></table>';
+  document.getElementById('messagesBox').innerHTML = html;
+}
+
+async function restartWhatsapp() {
+  await fetch('/api/restart-whatsapp', { method: 'POST' });
+  alert('Reinicio solicitado. Esperá unos segundos y abrí nuevamente el QR.');
+  setTimeout(loadStatus, 4000);
+}
+
+async function boot() {
+  await loadStatus();
+  await loadConfig();
+  await loadMessages();
+  setInterval(loadStatus, 7000);
+  setInterval(loadMessages, 10000);
+}
+
+boot();
+window.addEventListener("load", async () => { try { if (typeof loadConfig === "function") { await loadConfig(); } } catch(e){ console.log(e); } });
+</script>
+</body>
+</html>
