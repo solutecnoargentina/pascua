@@ -1,0 +1,5 @@
+node_modules
+sessions
+data.db
+logs
+*.log
