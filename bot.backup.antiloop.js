@@ -17,7 +17,7 @@ async function askAI(prompt) {
     });
 
     const data = await res.json();
-    return data.response.substring(0,500) || "No pude responder.";
+    return data.response || "No pude responder.";
   } catch (e) {
     return "Error IA";
   }
