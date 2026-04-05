@@ -1,4 +1,3 @@
-const fetch = require("node-fetch");
 const Database = require('better-sqlite3');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
@@ -27,7 +26,7 @@ function getConfig() {
   const row = db.prepare('SELECT * FROM config WHERE id = 1').get() || {};
   return {
     ai_enabled: row.ai_enabled == 1,
-    ai_prompt: row.ai_prompt || "Sos un asistente profesional argentino.",
+    ai_prompt: row.ai_prompt || "Sos un asistente profesional de ventas y soporte.",
 
     sales_triggers: (row.sales_triggers || '').toLowerCase(),
     support_triggers: (row.support_triggers || '').toLowerCase(),
@@ -69,31 +68,28 @@ function start() {
 
       let reply;
 
-      // 🔥 PRIORIDAD 1: BOT (ventas / soporte)
-      if (match(text, cfg.sales_triggers)) {
-        console.log("AGENTE: VENTAS");
-        reply = cfg.sales_message;
-      } 
-      else if (match(text, cfg.support_triggers)) {
-        console.log("AGENTE: SOPORTE");
-        reply = cfg.support_message;
-      } 
-      else {
-        // 🔥 PRIORIDAD 2: IA
-        if (cfg.ai_enabled) {
-          console.log("AGENTE: IA");
+      if (cfg.ai_enabled) {
+        console.log("MODO IA");
 
-          const prompt = `${cfg.ai_prompt}\nCliente: ${text}`;
-          reply = await askAI(prompt);
+        const prompt = `${cfg.ai_prompt}\n\nCliente: ${text}`;
+        reply = await askAI(prompt);
 
-        } else {
-          console.log("AGENTE: SECRETARIA");
+      } else {
+        console.log("MODO BOT");
+
+        if (match(text, cfg.sales_triggers)) {
+          reply = cfg.sales_message;
+        } 
+        else if (match(text, cfg.support_triggers)) {
+          reply = cfg.support_message;
+        } 
+        else {
           reply = cfg.secretary_message;
         }
       }
 
       await client.sendMessage(msg.from, reply);
-      console.log("RESPONDIDO OK");
+      console.log("RESPONDIDO");
 
     } catch (e) {
       console.log("ERROR:", e.message);

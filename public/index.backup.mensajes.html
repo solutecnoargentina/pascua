@@ -187,7 +187,7 @@ async function loadMessages() {
   const rows = data.messages || [];
 
   if (!rows.length) {
-    document.getElementById('messagesBox').innerHTML = '<p>Cargando mensajes...</p>';
+    document.getElementById('messagesBox').innerHTML = '<p>No hay mensajes todavía.</p>';
     return;
   }
 
@@ -238,34 +238,3 @@ cargarLeads();
 </script>
 </body>
 </html>
-
-<hr>
-<h2>🧠 IA</h2>
-
-<label>Activar IA</label>
-<input type="checkbox" id="ai_enabled">
-
-<script>
-async function cargarIA2(){
-  const r = await fetch('/api/config');
-  const d = await r.json();
-  const c = d.config || {};
-  document.getElementById('ai_enabled').checked = c.ai_enabled == 1;
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const el = document.getElementById('ai_enabled');
-  if(el){
-    el.addEventListener('change', async function(){
-      await fetch('/api/config',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ ai_enabled: this.checked ? 1 : 0 })
-      });
-      alert("Modo IA actualizado");
-    });
-  }
-  cargarIA2();
-});
-</script>
-

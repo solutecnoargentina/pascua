@@ -1,48 +1,40 @@
-const fetch = require("node-fetch");
 const Database = require('better-sqlite3');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 
 const db = new Database('/opt/solutecno-whatsapp/data.db');
+let client;
 
-async function askAI(prompt) {
-  try {
-    const res = await fetch('http://127.0.0.1:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'qwen:latest',
-        prompt: prompt,
-        stream: false
-      })
-    });
+function saveLead(phone, name, message) {
+  const exists = db.prepare("SELECT * FROM leads WHERE phone=?").get(phone);
 
-    const data = await res.json();
-    return data.response || "No pude responder.";
-  } catch (e) {
-    return "Error IA";
+  if (!exists) {
+    db.prepare("INSERT INTO leads (phone, name, last_message) VALUES (?, ?, ?)")
+      .run(phone, name, message);
+    console.log("NUEVO LEAD:", phone);
+  } else {
+    db.prepare("UPDATE leads SET last_message=?, created_at=CURRENT_TIMESTAMP WHERE phone=?")
+      .run(message, phone);
   }
 }
 
 function getConfig() {
   const row = db.prepare('SELECT * FROM config WHERE id = 1').get() || {};
   return {
-    ai_enabled: row.ai_enabled == 1,
-    ai_prompt: row.ai_prompt || "Sos un asistente profesional argentino.",
+    company_name: row.company_name || 'Solutecno Argentina',
+    secretary_name: row.secretary_name || 'Secretaria',
 
-    sales_triggers: (row.sales_triggers || '').toLowerCase(),
-    support_triggers: (row.support_triggers || '').toLowerCase(),
+    sales_triggers: (row.sales_triggers || 'precio,comprar').toLowerCase(),
+    support_triggers: (row.support_triggers || 'error,no anda').toLowerCase(),
 
-    sales_message: row.sales_message || '',
-    support_message: row.support_message || '',
-    secretary_message: row.secretary_message || ''
+    sales_message: row.sales_message || 'Te paso info de ventas',
+    support_message: row.support_message || 'Te ayudo con soporte',
+    secretary_message: row.secretary_message || 'Hola ¿en qué puedo ayudarte?'
   };
 }
 
 function match(text, triggers) {
   return triggers.split(',').some(t => text.includes(t.trim()));
 }
-
-let client;
 
 function start() {
   client = new Client({
@@ -60,36 +52,30 @@ function start() {
     try {
       if (msg.fromMe) return;
 
-      // 🔒 BLINDAJE
+      // 🔒 BLOQUEOS IMPORTANTES
       if (msg.from === "status@broadcast") return;
       if (msg.from.includes("broadcast")) return;
 
       const text = (msg.body || '').toLowerCase();
+      const phone = msg.from;
+
+      saveLead(phone, phone, text);
+
       const cfg = getConfig();
 
       let reply;
 
-      // 🔥 PRIORIDAD 1: BOT (ventas / soporte)
       if (match(text, cfg.sales_triggers)) {
         console.log("AGENTE: VENTAS");
-        reply = cfg.sales_message;
+        reply = `💰 ${cfg.sales_message}`;
       } 
       else if (match(text, cfg.support_triggers)) {
         console.log("AGENTE: SOPORTE");
-        reply = cfg.support_message;
+        reply = `🔧 ${cfg.support_message}`;
       } 
       else {
-        // 🔥 PRIORIDAD 2: IA
-        if (cfg.ai_enabled) {
-          console.log("AGENTE: IA");
-
-          const prompt = `${cfg.ai_prompt}\nCliente: ${text}`;
-          reply = await askAI(prompt);
-
-        } else {
-          console.log("AGENTE: SECRETARIA");
-          reply = cfg.secretary_message;
-        }
+        console.log("AGENTE: SECRETARIA");
+        reply = `👋 ${cfg.secretary_message}`;
       }
 
       await client.sendMessage(msg.from, reply);
