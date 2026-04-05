@@ -224,17 +224,5 @@ async function boot() {
 boot();
 window.addEventListener("load", async () => { try { if (typeof loadConfig === "function") { await loadConfig(); } } catch(e){ console.log(e); } });
 </script>
-<hr><h2>📊 Leads</h2><div id="leads"></div>
-<script>
-async function cargarLeads(){
-const r = await fetch(/api/leads);
-const d = await r.json();
-let html = ;
-d.forEach(l => { html += `<div style="border:1px solid #555;padding:10px;margin:5px">${l.phone} - ${l.last_message}</div>` });
-document.getElementById(leads).innerHTML = html;
-}
-setInterval(cargarLeads,3000);
-cargarLeads();
-</script>
 </body>
 </html>

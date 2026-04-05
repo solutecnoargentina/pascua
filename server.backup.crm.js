@@ -148,9 +148,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Dashboard/API listo en puerto ${PORT}`);
 });
-
-app.get('/api/leads', (req, res) => {
-  const db = require('better-sqlite3')('/opt/solutecno-whatsapp/data.db');
-  const rows = db.prepare("SELECT * FROM leads ORDER BY id DESC").all();
-  res.json(rows);
-});

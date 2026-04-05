@@ -22,13 +22,11 @@ function getConfig() {
   return {
     company_name: row.company_name || 'Solutecno Argentina',
     secretary_name: row.secretary_name || 'Secretaria',
-
-    sales_triggers: (row.sales_triggers || 'precio,comprar').toLowerCase(),
-    support_triggers: (row.support_triggers || 'error,no anda').toLowerCase(),
-
-    sales_message: row.sales_message || 'Te paso info de ventas',
-    support_message: row.support_message || 'Te ayudo con soporte',
-    secretary_message: row.secretary_message || 'Hola ¿en qué puedo ayudarte?'
+    sales_triggers: (row.sales_triggers || '').toLowerCase(),
+    support_triggers: (row.support_triggers || '').toLowerCase(),
+    sales_message: row.sales_message || '',
+    support_message: row.support_message || '',
+    secretary_message: row.secretary_message || ''
   };
 }
 
@@ -49,41 +47,28 @@ function start() {
   client.on('ready', () => console.log("WhatsApp OK"));
 
   client.on('message_create', async (msg) => {
-    try {
-      if (msg.fromMe) return;
+    if (msg.fromMe) return;
 
-      // 🔒 BLOQUEOS IMPORTANTES
-      if (msg.from === "status@broadcast") return;
-      if (msg.from.includes("broadcast")) return;
+    const text = (msg.body || '').toLowerCase();
+    const phone = msg.from;
+    const name = phone;
 
-      const text = (msg.body || '').toLowerCase();
-      const phone = msg.from;
+    // 🔥 GUARDAR LEAD
+    saveLead(phone, name, text);
 
-      saveLead(phone, phone, text);
+    const cfg = getConfig();
 
-      const cfg = getConfig();
+    let reply;
 
-      let reply;
-
-      if (match(text, cfg.sales_triggers)) {
-        console.log("AGENTE: VENTAS");
-        reply = `💰 ${cfg.sales_message}`;
-      } 
-      else if (match(text, cfg.support_triggers)) {
-        console.log("AGENTE: SOPORTE");
-        reply = `🔧 ${cfg.support_message}`;
-      } 
-      else {
-        console.log("AGENTE: SECRETARIA");
-        reply = `👋 ${cfg.secretary_message}`;
-      }
-
-      await client.sendMessage(msg.from, reply);
-      console.log("RESPONDIDO OK");
-
-    } catch (e) {
-      console.log("ERROR:", e.message);
+    if (match(text, cfg.sales_triggers)) {
+      reply = cfg.sales_message;
+    } else if (match(text, cfg.support_triggers)) {
+      reply = cfg.support_message;
+    } else {
+      reply = cfg.secretary_message;
     }
+
+    await client.sendMessage(msg.from, reply);
   });
 
   client.initialize();
