@@ -154,3 +154,25 @@ app.get('/api/leads', (req, res) => {
   const rows = db.prepare("SELECT * FROM leads ORDER BY id DESC").all();
   res.json(rows);
 });
+
+// 🔥 FIX CONFIG (NO BORRAR DATOS EXISTENTES)
+app.post('/api/config', (req, res) => {
+  const db = require('better-sqlite3')('/opt/solutecno-whatsapp/data.db');
+
+  const current = db.prepare("SELECT * FROM config WHERE id=1").get() || {};
+
+  const updated = {
+    ...current,
+    ...req.body
+  };
+
+  const fields = Object.keys(updated)
+    .filter(k => k !== 'id')
+    .map(k => `${k} = @${k}`)
+    .join(', ');
+
+  db.prepare(`UPDATE config SET ${fields} WHERE id=1`).run(updated);
+
+  res.json({ ok: true });
+});
+

@@ -104,18 +104,6 @@ function start() {
         }
 
         console.log("AGENTE: VENTAS");
-
-        // 🔔 ALERTA MINIMA SEGURA
-        try {
-          const numero = (cfg.alert_number || "").replace(/[^0-9]/g, "");
-          if(numero){
-            const destino = numero + "@c.us";
-            setTimeout(() => {
-              client.sendMessage(destino, `🔥 LEAD\n${msg.from}\n${msg.body}`);
-            }, 2000);
-          }
-        } catch(e){ console.log("alerta error"); }
-
         reply = cfg.sales_message;
       } 
       else if (match(text, cfg.support_triggers)) {

@@ -1,4 +1,3 @@
-let MI_NUMERO = null;
 function limpiarRespuesta(txt){
   if(!txt) return "";
 
@@ -97,25 +96,7 @@ function start() {
 
       // 🔥 PRIORIDAD 1: BOT (ventas / soporte)
       if (match(text, cfg.sales_triggers)) {
-
-        // 🔔 ALERTA DE VENTA
-        if(MI_NUMERO){
-          client.sendMessage(MI_NUMERO, `🔥 LEAD INTERESADO\n\nNumero: ${msg.from}\nMensaje: ${msg.body}`);
-        }
-
         console.log("AGENTE: VENTAS");
-
-        // 🔔 ALERTA MINIMA SEGURA
-        try {
-          const numero = (cfg.alert_number || "").replace(/[^0-9]/g, "");
-          if(numero){
-            const destino = numero + "@c.us";
-            setTimeout(() => {
-              client.sendMessage(destino, `🔥 LEAD\n${msg.from}\n${msg.body}`);
-            }, 2000);
-          }
-        } catch(e){ console.log("alerta error"); }
-
         reply = cfg.sales_message;
       } 
       else if (match(text, cfg.support_triggers)) {

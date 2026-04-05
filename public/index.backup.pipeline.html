@@ -236,34 +236,6 @@ document.getElementById(leads).innerHTML = html;
 setInterval(cargarLeads,3000);
 cargarLeads();
 </script>
-<hr><h2>💰 Pipeline de Ventas</h2><div id="pipeline"></div>
-<script>
-async function cargarPipeline(){
-const r = await fetch(/api/leads);
-const d = await r.json();
-let html = ;
-d.forEach(l => {
-html += `<div style="border:1px solid #444;padding:10px;margin:5px">${l.phone} - ${l.etapa}</div>`;
-});
-document.getElementById(pipeline).innerHTML = html;
-}
-setInterval(cargarPipeline,3000);
-cargarPipeline();
-</script>
-<hr><h2>💰 Pipeline de Ventas</h2><div id="pipeline"></div>
-<script>
-async function cargarPipeline(){
-const r = await fetch(/api/leads);
-const d = await r.json();
-let html = ;
-d.forEach(l => {
-html += `<div style="border:1px solid #444;padding:10px;margin:5px">${l.phone} - ${l.etapa}</div>`;
-});
-document.getElementById(pipeline).innerHTML = html;
-}
-setInterval(cargarPipeline,3000);
-cargarPipeline();
-</script>
 </body>
 </html>
 
@@ -326,74 +298,5 @@ async function guardarTraining(){
 }
 
 cargarTraining();
-</script>
-
-
-<hr>
-<h2>📲 Alertas</h2>
-
-<label>Número para alertas (ej: 5491122334455)</label>
-<input id="alert_number" placeholder="Número WhatsApp">
-
-<button onclick="guardarAlerta()">Guardar número</button>
-
-<script>
-async function cargarAlerta(){
-  const r = await fetch('/api/config');
-  const d = await r.json();
-  const c = d.config || {};
-  document.getElementById('alert_number').value = c.alert_number || "";
-}
-
-async function guardarAlerta(){
-  const num = document.getElementById('alert_number').value;
-
-  await fetch('/api/config',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ alert_number: num })
-  });
-
-  alert("Número guardado");
-}
-
-cargarAlerta();
-</script>
-
-
-<hr>
-<h2>💾 Guardado Seguro</h2>
-
-<button onclick="guardarSeguro()">GUARDAR TODO (SEGURO)</button>
-
-<div id="estado_guardado" style="margin-top:10px;color:lime;"></div>
-
-<script>
-async function guardarSeguro(){
-  const payload = {};
-
-  document.querySelectorAll("input, textarea").forEach(el => {
-    if(el.id){
-      payload[el.id] = el.value;
-    }
-  });
-
-  try {
-    const res = await fetch("/api/config", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-
-    document.getElementById("estado_guardado").innerText = "✅ Guardado correctamente";
-
-    console.log("CONFIG GUARDADA:", data);
-
-  } catch(e){
-    document.getElementById("estado_guardado").innerText = "❌ Error al guardar";
-  }
-}
 </script>
 
